@@ -9,15 +9,17 @@ if(!extension_loaded('swoole')) {
     echo PHP_EOL;
     exit;
 }
-$serv = new swoole_websocket_server("0.0.0.0", 9502);
+$serv = new Swoole\WebSocket\Server("0.0.0.0", 9502);
 $serv->set($config);
 $counting = 0;
-$serv->on('Open', function($server, $req) {
+$serv->on('open', function(Swoole\WebSocket\Server $server, $req) {
     echo "connection open: ".$req->fd;
     echo PHP_EOL;
+    $arr_msg = ['client_id'=>$req->fd, 'message'=>'connected'];
+    $server->push($req->fd, json_encode($arr_msg));
 });
 
-$serv->on('Message', function($server, $frame) {
+$serv->on('message', function(Swoole\WebSocket\Server $server, $frame) {
     global $counting;
     echo "message: ".$frame->data.', counting: ' . $counting;
     echo PHP_EOL;
@@ -75,9 +77,21 @@ $serv->on('Message', function($server, $frame) {
     $server->push($_fd, json_encode($frame, JSON_UNESCAPED_UNICODE));
 });
 
-$serv->on('Close', function($server, $fd) {
+$serv->on('close', function(Swoole\WebSocket\Server $server, $fd) {
     echo "connection close: ".$fd;
     echo PHP_EOL;
+});
+
+$serv->on('request', function(Swoole\Http\Request $request, Swoole\Http\Response $response) {
+    global $serv;
+    # fd, header, server, request, cookie, get, post, files, tmpfiles
+    # $request->rawContent(); # equals: fopen('php://input');
+    $uri = $request->server['request_uri'];
+    if($uri == '' || $uri == '/' || $uri == '/index.html') {
+        $file = __DIR__ . '/index.html';
+        $response->status(200);
+        $response->sendfile($file);
+    }
 });
 
 $serv->start();

@@ -20,17 +20,28 @@
 <body>
     <div class="main">
         <div><br /></div>
-        <div class="container1 clearfix">
+        <div class="container clearfix">
             <div class="row">
-                <div class="col col-sm-3" id="form_group_wrp">
+                <div class="col col-sm-12 col-xs-3 col-lg-3" id="form_group_wrp">
                     <div class="form-group">
                         <button class="btn btn-primary" id="btn_clean_result">清空右侧消息</button>
                     </div>
                     <div class="form-group">
                         <button class="btn btn-primary form-group" id="btn_reconnect">刷新</button>
                     </div>
+                    <div>
+                        <div>连接ID: <span id="client_id"></span></div>
+                        <div>目标ID: <input type="text" class="form-control" id="target_id"></div>
+                        <div>内容</div>
+                        <div>
+                            <textarea name="" class="form-control" id="content_send" cols="30" rows="10"></textarea>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" id="btnSend">发送</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="col col-sm-9">
+                <div class="col col-sm-12 col-xs-9 col-lg-9">
                     <div class="panel"><div class="panel-heading">操作结果</div></div>
                     <div id="result" class="font-firacode-regular"></div>
                 </div>
@@ -60,7 +71,7 @@
                 }
                 var _html = $('<div class="form-group">');
                 _html.append('<button class="btn btn-primary btn_ws_act" data-idx="'+k+'">'+_t+'</button>');
-                _html.appendTo($('#form_group_wrp'));
+                _html.prependTo($('#form_group_wrp'));
             }
             $('#form_group_wrp').delegate('.btn_ws_act', 'click', function(obj) {
                 var _idx = $(obj.target).data('idx');
@@ -104,6 +115,16 @@
                 } else {
                     _html.html('<div class="alert alert-light">' + JSON.stringify(data.data) + '</div>');
                 }
+                if(_data.message && typeof(_data.message) == 'string') {
+                    if(_data.message == 'connected') {
+                        if(_data.client_id) {
+                            $('#client_id').html(_data.client_id)
+                            if($('#target_id').val() == '') {
+                                $('#target_id').val(_data.client_id)
+                            }
+                        }
+                    }
+                }
                 $('#result').prepend(_html);
             };
             _ws.onerror = function(data) {
@@ -125,8 +146,11 @@
 
             var _callRemote = function(data) {
                 var _time = new Date().toLocaleString();
+                var _title = '';
+                if(data.title) { _title = data.title; }
+                if(data.type) { _title = data.type; }
                 var _html = $('<div class="panel-primary">');
-                _html.html('<div class="alert alert-primary">['+_time+'] ' + data.title + '</div>');
+                _html.html('<div class="alert alert-primary">['+_time+'] ' + _title + '</div>');
                 $('#result').prepend(_html);
                 $('#result').prepend('<div class="alert alert-secondary">正在等待服务器完成操作。</div>');
                 if(!data.data) {
@@ -138,6 +162,18 @@
                     }
                     _ws.send(objSend);
                 }
+                if(data.type) {
+                    if(data.type == 'msg') {
+                        var _current = $('#client_id').text()
+                        var _target = $('#target_id').val()
+                        if(data.data.fd) {
+                            _target = data.data.fd + '';
+                        }
+                        if(_current != _target) {
+                            $('#result').prepend('<div class="alert alert-info">消息推送至其他连接。</div>');
+                        }
+                    }
+                }
             };
             var _disableItems = function() {
                 $('.btn_ws_act').attr('disabled', 'disabled')
@@ -145,6 +181,12 @@
             var _enableItems = function() {
                 $('.btn_ws_act').removeAttr('disabled');
             }
+            $('#btnSend').click(function(){
+                var t = $('#target_id').val()
+                var c = $('#content_send').val()
+                var d = {fd: t, type: 'msg', res: c}
+                _callRemote({data: d, type: 'msg'})
+            })
             
             $('#btn_clean_result').click(function() { $('#result').html(''); });
             $('#btn_reconnect').click(function() {
